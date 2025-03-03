@@ -6,13 +6,37 @@ import logo from "../logo.png"; // Import logo for branding consistency
 const VerifyOTP = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const email = location.state?.email || "";
 
+  // Retrieve userData from location.state or localStorage
+  const email = location.state?.email || localStorage.getItem("email") || "";
+  const purpose = location.state?.purpose || localStorage.getItem("purpose") || "signup";
+  const [userData, setUserData] = useState(location.state?.userData || null);
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
   const [timer, setTimer] = useState(120);
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
+    console.log("Received location state:", location.state);
+
+    // Store data in localStorage to prevent loss on refresh
+    if (userData) {
+      localStorage.setItem("userData", JSON.stringify(userData));
+      localStorage.setItem("email", email);
+      localStorage.setItem("purpose", purpose);
+    } else {
+      // If userData is missing and purpose is signup, redirect to signup page
+      const storedUserData = localStorage.getItem("userData");
+      if (!storedUserData && purpose === "signup") {
+        alert("⚠️ Missing user data. Please restart the signup process.");
+        navigate("/signup");
+      } else {
+        setUserData(JSON.parse(storedUserData));
+      }
+    }
+  }, [userData, purpose, navigate]);
+
+  useEffect(() => {
+    // Start countdown timer
     const interval = setInterval(() => {
       setTimer((prev) => (prev > 0 ? prev - 1 : 0));
     }, 1000);
@@ -28,7 +52,7 @@ const VerifyOTP = () => {
 
     // Auto-focus next input
     if (value && index < 5) {
-      document.getElementById(`otp-${index + 1}`).focus();
+      document.getElementById(`otp-${index + 1}`)?.focus();
     }
   };
 
@@ -42,10 +66,40 @@ const VerifyOTP = () => {
 
     setIsLoading(true);
     try {
-      const response = await axios.post("http://localhost:5000/verify-otp", { email, otp: enteredOtp });
+      let requestData = { email, otp: enteredOtp };
+
+      if (purpose === "signup") {
+        if (!userData) {
+          alert("⚠️ Missing user data. Please restart the signup process.");
+          setIsLoading(false);
+          return;
+        }
+        requestData = {
+          ...requestData,
+          name: userData.name,
+          age: userData.age,
+          gender: userData.gender,
+          phone: userData.phone,
+          password: userData.password,
+        };
+      }
+
+      const apiEndpoint =
+        purpose === "signup"
+          ? "http://localhost:5000/register"
+          : "http://localhost:5000/verify-otp";
+
+      const response = await axios.post(apiEndpoint, requestData);
+
       if (response.data.success) {
-        alert("✅ OTP Verified! Redirecting...");
-        navigate("/dashboard");
+        alert("✅ OTP Verified! Account successfully created.");
+        localStorage.removeItem("userData"); // Cleanup after successful verification
+
+        if (purpose === "signup") {
+          navigate("/login"); // Redirect to login after signup
+        } else if (purpose === "reset-password") {
+          navigate("/reset-password", { state: { email } }); // Redirect to reset password page
+        }
       } else {
         alert("❌ Invalid OTP. Try again.");
       }
@@ -76,8 +130,12 @@ const VerifyOTP = () => {
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-[#FDF7F4] p-6">
       <img src={logo} alt="NutriFlow Logo" className="w-[650px] h-auto mb-6" />
-      <h2 className="text-2xl font-bold mb-4 text-gray-800 font-sans">Verify Your OTP</h2>
-      <p className="mb-4 text-gray-600">Enter the OTP sent to <span className="font-semibold">{email}</span></p>
+      <h2 className="text-2xl font-bold mb-4 text-gray-800 font-sans">
+        {purpose === "signup" ? "Verify Your Email" : "Reset Your Password"}
+      </h2>
+      <p className="mb-4 text-gray-600">
+        Enter the OTP sent to <span className="font-semibold">{email}</span>
+      </p>
 
       {/* OTP Input Fields */}
       <div className="flex justify-center gap-2 mb-4">
@@ -94,14 +152,16 @@ const VerifyOTP = () => {
         ))}
       </div>
 
-     {/* Verify Button */}
-<button
-  onClick={verifyOtp}
-  className={`w-64 bg-[#D81B60] text-white font-bold py-3 rounded-lg hover:bg-[#880E4F] transition-all duration-300 ${isLoading ? "opacity-50 cursor-not-allowed" : ""}`}
-  disabled={isLoading}
->
-  {isLoading ? "Verifying..." : "Verify OTP"}
-</button>
+      {/* Verify Button */}
+      <button
+        onClick={verifyOtp}
+        className={`w-64 bg-[#D81B60] text-white font-bold py-3 rounded-lg hover:bg-[#880E4F] transition-all duration-300 ${
+          isLoading ? "opacity-50 cursor-not-allowed" : ""
+        }`}
+        disabled={isLoading}
+      >
+        {isLoading ? "Verifying..." : "Verify OTP"}
+      </button>
 
       {/* Timer & Resend */}
       <p className="text-gray-600 mt-4">
@@ -110,7 +170,9 @@ const VerifyOTP = () => {
       {timer === 0 && (
         <button
           onClick={resendOtp}
-          className={`mt-2 text-[#D81B60] hover:underline ${isLoading ? "opacity-50 cursor-not-allowed" : ""}`}
+          className={`mt-2 text-[#D81B60] hover:underline ${
+            isLoading ? "opacity-50 cursor-not-allowed" : ""
+          }`}
           disabled={isLoading}
         >
           {isLoading ? "Resending..." : "Resend OTP"}
