@@ -12,13 +12,14 @@ const VerifyOTP = () => {
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
   const [timer, setTimer] = useState(120);
   const [isLoading, setIsLoading] = useState(false);
+  const [otpError, setOtpError] = useState("");
+  const [resendError, setResendError] = useState("");
 
   useEffect(() => {
     // Store email in localStorage to persist across refresh
     if (email) {
       localStorage.setItem("email", email);
     } else {
-      alert("⚠️ Missing email. Please restart the process.");
       navigate("/forgot-password");
     }
   }, [email, navigate]);
@@ -35,20 +36,28 @@ const VerifyOTP = () => {
     if (!/^\d*$/.test(value)) return; // Allow only numbers
 
     const newOtp = [...otp];
-    newOtp[index] = value;
+    if (value.length === 6) {
+      // If all 6 digits are pasted into the first field, update all at once
+      newOtp.splice(0, 6, ...value.split(""));
+    } else {
+      newOtp[index] = value;
+    }
+
     setOtp(newOtp);
 
     // Auto-focus next input
     if (value && index < 5) {
       document.getElementById(`otp-${index + 1}`)?.focus();
     }
+
+    setOtpError(""); // Clear error on input change
   };
 
   const verifyOtp = async () => {
     const enteredOtp = otp.join("");
 
     if (enteredOtp.length !== 6) {
-      alert("Please enter the 6-digit OTP.");
+      setOtpError("Please enter the full 6-digit OTP.");
       return;
     }
 
@@ -60,14 +69,13 @@ const VerifyOTP = () => {
       });
 
       if (response.data.success) {
-        alert("✅ OTP Verified! Redirecting to reset password...");
         localStorage.setItem("email", email);
         navigate("/reset-password", { state: { email } }); // Redirect to Reset Password
       } else {
-        alert("❌ Invalid OTP. Try again.");
+        setOtpError("Invalid OTP. Please try again.");
       }
     } catch (error) {
-      alert(`⚠️ Error: ${error.response?.data?.message || "Verification failed"}`);
+      setOtpError(`Error: ${error.response?.data?.message || "Verification failed"}`);
     } finally {
       setIsLoading(false);
     }
@@ -75,16 +83,16 @@ const VerifyOTP = () => {
 
   const resendOtp = async () => {
     setIsLoading(true);
+    setResendError(""); // Clear any previous resend error
     try {
       const response = await axios.post("http://localhost:5000/forgot-password", { email });
       if (response.data.success) {
         setTimer(120); // Reset timer
-        alert("📩 OTP has been resent to your email!");
       } else {
-        alert("⚠️ Error resending OTP.");
+        setResendError("Error resending OTP. Please try again.");
       }
     } catch (error) {
-      alert(`⚠️ Error: ${error.response?.data?.message || "Resend failed"}`);
+      setResendError(`Error: ${error.response?.data?.message || "Resend failed"}`);
     } finally {
       setIsLoading(false);
     }
@@ -101,15 +109,23 @@ const VerifyOTP = () => {
       {/* OTP Input Fields */}
       <div className="flex justify-center gap-2 mb-4">
         {otp.map((digit, index) => (
-          <input
-            key={index}
-            id={`otp-${index}`}
-            type="text"
-            value={digit}
-            maxLength="1"
-            onChange={(e) => handleChange(index, e.target.value)}
-            className="w-12 h-12 text-xl text-center bg-gray-100 text-gray-800 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#C2185B] placeholder-gray-500"
-          />
+          <div key={index} className="relative">
+            <input
+              id={`otp-${index}`}
+              type="text"
+              value={digit}
+              maxLength="1"
+              onChange={(e) => handleChange(index, e.target.value)}
+              onPaste={(e) => {
+                const pasteValue = e.clipboardData.getData("Text");
+                handleChange(index, pasteValue);
+              }}
+              className="w-12 h-12 text-xl text-center bg-gray-100 text-gray-800 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#C2185B] placeholder-gray-500"
+            />
+            {otpError && index === otp.length - 1 && (
+              <p className="text-red-500 text-xs absolute -bottom-6 left-0">{otpError}</p>
+            )}
+          </div>
         ))}
       </div>
 
@@ -139,6 +155,7 @@ const VerifyOTP = () => {
           {isLoading ? "Resending..." : "Resend OTP"}
         </button>
       )}
+      {resendError && <p className="text-red-500 text-xs mt-2">{resendError}</p>}
 
       {/* Back to Forgot Password */}
       <button

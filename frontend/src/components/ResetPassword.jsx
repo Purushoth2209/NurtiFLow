@@ -14,56 +14,46 @@ const ResetPassword = () => {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-
-  // Log retrieved email
-  console.log("Retrieved Email:", email);
+  const [errors, setErrors] = useState({});
 
   // Redirect if no email is found
   useEffect(() => {
     if (!email) {
-      console.warn("⚠️ Email is missing. Redirecting to login.");
-      alert("⚠️ Email is missing. Redirecting to login.");
       navigate("/login");
     }
   }, [email, navigate]);
 
   const resetPassword = async () => {
-    console.log("New Password:", newPassword);
-    console.log("Confirm Password:", confirmPassword);
+    setErrors({}); // Reset errors on each attempt
+    let formErrors = {};
 
     if (!newPassword || !confirmPassword) {
-      console.warn("⚠️ Missing password fields.");
-      alert("⚠️ Please enter both password fields.");
-      return;
+      formErrors.password = "Both password fields are required.";
+    } else if (newPassword !== confirmPassword) {
+      formErrors.password = "Passwords do not match.";
     }
-    if (newPassword !== confirmPassword) {
-      console.warn("⚠️ Passwords do not match.");
-      alert("⚠️ Passwords do not match.");
-      return;
+
+    if (Object.keys(formErrors).length > 0) {
+      setErrors(formErrors);
+      return; // Stop form submission if there are errors
     }
 
     setIsLoading(true);
     try {
-      console.log("Sending request to reset password with email:", email);
-
       const response = await axios.post("http://localhost:5000/reset-password", {
-        email,  // Ensure email is included
-        newPassword: newPassword,
+        email, 
+        newPassword,
       });
-
-      console.log("API Response:", response.data);
 
       if (response.data.success) {
         alert("✅ Password reset successfully! Please log in.");
         localStorage.removeItem("email"); // Remove email after reset
         navigate("/login");
       } else {
-        console.error("⚠️ Error resetting password. Server response:", response.data);
-        alert("⚠️ Error resetting password.");
+        setErrors({ server: response.data.message || "Error resetting password." });
       }
     } catch (error) {
-      console.error("⚠️ API Error:", error.response?.data || error.message);
-      alert(`⚠️ Error: ${error.response?.data?.message || "Reset failed"}`);
+      setErrors({ server: error.response?.data?.message || "Error resetting password. Please try again." });
     } finally {
       setIsLoading(false);
     }
@@ -77,20 +67,27 @@ const ResetPassword = () => {
         Enter your new password for <span className="font-semibold">{email}</span>.
       </p>
 
-      <input
-        type="password"
-        value={newPassword}
-        onChange={(e) => setNewPassword(e.target.value)}
-        className="w-64 p-3 text-gray-800 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#C2185B] mb-2"
-        placeholder="New Password"
-      />
-      <input
-        type="password"
-        value={confirmPassword}
-        onChange={(e) => setConfirmPassword(e.target.value)}
-        className="w-64 p-3 text-gray-800 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#C2185B] mb-4"
-        placeholder="Confirm New Password"
-      />
+      <div className="w-64 mb-4">
+        <input
+          type="password"
+          value={newPassword}
+          onChange={(e) => setNewPassword(e.target.value)}
+          className="w-full p-3 text-gray-800 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#C2185B]"
+          placeholder="New Password"
+        />
+        {errors.password && <p className="text-red-500 text-sm mt-1">{errors.password}</p>}
+      </div>
+
+      <div className="w-64 mb-4">
+        <input
+          type="password"
+          value={confirmPassword}
+          onChange={(e) => setConfirmPassword(e.target.value)}
+          className="w-full p-3 text-gray-800 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#C2185B]"
+          placeholder="Confirm New Password"
+        />
+        {errors.password && <p className="text-red-500 text-sm mt-1">{errors.password}</p>}
+      </div>
 
       <button
         onClick={resetPassword}
@@ -101,6 +98,8 @@ const ResetPassword = () => {
       >
         {isLoading ? "Resetting..." : "Reset Password"}
       </button>
+
+      {errors.server && <p className="text-red-500 text-sm mt-4">{errors.server}</p>}
 
       <button onClick={() => navigate("/login")} className="mt-4 text-gray-700 hover:text-[#D81B60] underline">
         Back to Login

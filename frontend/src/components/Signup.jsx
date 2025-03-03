@@ -20,6 +20,7 @@ const Signup = () => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [otpSent, setOtpSent] = useState(false);
   const [otpVerified, setOtpVerified] = useState(false);
+  const [errors, setErrors] = useState({});
   const navigate = useNavigate();
 
   const handleChange = (e) => {
@@ -29,15 +30,17 @@ const Signup = () => {
   // Validate Form Fields
   const validateFields = () => {
     const { name, age, gender, email, phone, password, confirmPassword } = formData;
-    if (!name || !age || !gender || !email || !phone || !password || !confirmPassword) {
-      alert("All fields are required!");
-      return false;
-    }
-    if (password !== confirmPassword) {
-      alert("Passwords do not match!");
-      return false;
-    }
-    return true;
+    let formErrors = {};
+    if (!name) formErrors.name = "Name is required.";
+    if (!age) formErrors.age = "Age is required.";
+    if (!gender) formErrors.gender = "Gender is required.";
+    if (!email) formErrors.email = "Email is required.";
+    if (!phone) formErrors.phone = "Phone number is required.";
+    if (!password) formErrors.password = "Password is required.";
+    if (!confirmPassword) formErrors.confirmPassword = "Please confirm your password.";
+    if (password && confirmPassword && password !== confirmPassword) formErrors.passwordMatch = "Passwords do not match.";
+    setErrors(formErrors);
+    return Object.keys(formErrors).length === 0;
   };
 
   // Send OTP
@@ -80,101 +83,115 @@ const Signup = () => {
     }
   };
 
-// Handle Signup
-const handleSubmit = async (e) => {
-  e.preventDefault();
+  // Handle Signup
+  const handleSubmit = async (e) => {
+    e.preventDefault();
 
-  if (!validateFields()) return;
+    if (!validateFields()) return;
 
-  if (!otpVerified) {
-    alert("Please verify your OTP before signing up.");
-    return;
-  }
+    if (!otpVerified) {
+      alert("Please verify your OTP before signing up.");
+      return;
+    }
 
-  if (formData.password !== formData.confirmPassword) {
-    alert("Passwords do not match. Please re-enter.");
-    return;
-  }
+    try {
+      const response = await axios.post("http://localhost:5000/register", {
+        name: formData.name,
+        age: formData.age,
+        gender: formData.gender,
+        email: formData.email,
+        phone: formData.phone,
+        password: formData.password,
+      });
 
-  try {
-    const response = await axios.post("http://localhost:5000/register", {
-      name: formData.name,
-      age: formData.age,
-      gender: formData.gender,
-      email: formData.email,
-      phone: formData.phone,
-      password: formData.password,
-    });
-
-    alert("Signup successful! Redirecting to login...");
-    navigate("/login");
-  } catch (error) {
-    alert(error.response?.data?.message || "Error signing up");
-  }
-};
-
+      alert("Signup successful! Redirecting to login...");
+      navigate("/login");
+    } catch (error) {
+      alert(error.response?.data?.message || "Error signing up");
+    }
+  };
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-[#FDF7F4]">
       <img src={logo} alt="NutriFlow Logo" className="w-[650px] h-auto mb-6" />
       <h2 className="text-2xl font-bold mb-4 text-gray-800 font-sans">Create Your Account</h2>
       <form onSubmit={handleSubmit} className="w-full max-w-md px-6">
-        <input
-          type="text"
-          placeholder="Name"
-          name="name"
-          className="w-full mb-4 p-3 bg-gray-100 border border-gray-300 rounded-lg"
-          value={formData.name}
-          onChange={handleChange}
-        />
-        <input
-          type="number"
-          placeholder="Age"
-          name="age"
-          className="w-full mb-4 p-3 bg-gray-100 border border-gray-300 rounded-lg"
-          value={formData.age}
-          onChange={handleChange}
-        />
-        <select
-          name="gender"
-          className="w-full mb-4 p-3 bg-gray-100 border border-gray-300 rounded-lg"
-          value={formData.gender}
-          onChange={handleChange}
-        >
-          <option value="">Select Gender</option>
-          <option value="Male">Male</option>
-          <option value="Female">Female</option>
-          <option value="Other">Other</option>
-        </select>
+        <div className="mb-4">
+          <input
+            type="text"
+            placeholder="Name"
+            name="name"
+            className="w-full p-3 bg-gray-100 border border-gray-300 rounded-lg"
+            value={formData.name}
+            onChange={handleChange}
+          />
+          {errors.name && <p className="text-red-500 text-sm">{errors.name}</p>}
+        </div>
 
-        <input
-          type="email"
-          placeholder="Email"
-          name="email"
-          className="w-full mb-4 p-3 bg-gray-100 border border-gray-300 rounded-lg"
-          value={formData.email}
-          onChange={handleChange}
-        />
+        <div className="mb-4">
+          <input
+            type="number"
+            placeholder="Age"
+            name="age"
+            className="w-full p-3 bg-gray-100 border border-gray-300 rounded-lg"
+            value={formData.age}
+            onChange={handleChange}
+          />
+          {errors.age && <p className="text-red-500 text-sm">{errors.age}</p>}
+        </div>
 
-        <input
-          type="text"
-          placeholder="Phone Number"
-          name="phone"
-          className="w-full mb-4 p-3 bg-gray-100 border border-gray-300 rounded-lg"
-          value={formData.phone}
-          onChange={handleChange}
-        />
+        <div className="mb-4">
+          <select
+            name="gender"
+            className="w-full p-3 bg-gray-100 border border-gray-300 rounded-lg"
+            value={formData.gender}
+            onChange={handleChange}
+          >
+            <option value="">Select Gender</option>
+            <option value="Male">Male</option>
+            <option value="Female">Female</option>
+            <option value="Other">Other</option>
+          </select>
+          {errors.gender && <p className="text-red-500 text-sm">{errors.gender}</p>}
+        </div>
+
+        <div className="mb-4">
+          <input
+            type="email"
+            placeholder="Email"
+            name="email"
+            className="w-full p-3 bg-gray-100 border border-gray-300 rounded-lg"
+            value={formData.email}
+            onChange={handleChange}
+          />
+          {errors.email && <p className="text-red-500 text-sm">{errors.email}</p>}
+        </div>
+
+        <div className="mb-4">
+          <input
+            type="text"
+            placeholder="Phone Number"
+            name="phone"
+            className="w-full p-3 bg-gray-100 border border-gray-300 rounded-lg"
+            value={formData.phone}
+            onChange={handleChange}
+          />
+          {errors.phone && <p className="text-red-500 text-sm">{errors.phone}</p>}
+        </div>
 
         {/* OTP Section */}
         {otpSent && (
-          <input
-            type="text"
-            placeholder="Enter OTP"
-            name="otp"
-            className="w-full mb-4 p-3 bg-gray-100 border border-gray-300 rounded-lg"
-            value={formData.otp}
-            onChange={handleChange}
-          />
+          <div className="mb-4">
+            <input
+              type="text"
+              placeholder="Enter OTP"
+              name="otp"
+              className="w-full p-3 bg-gray-100 border border-gray-300 rounded-lg"
+              value={formData.otp}
+              onChange={handleChange}
+            />
+            {errors.otp && <p className="text-red-500 text-sm">{errors.otp}</p>}
+          </div>
         )}
 
         {!otpSent ? (
@@ -213,6 +230,7 @@ const handleSubmit = async (e) => {
               >
                 {showPassword ? <FaEyeSlash size={20} /> : <FaEye size={20} />}
               </span>
+              {errors.password && <p className="text-red-500 text-sm">{errors.password}</p>}
             </div>
 
             <div className="relative w-full mb-4">
@@ -230,23 +248,27 @@ const handleSubmit = async (e) => {
               >
                 {showConfirmPassword ? <FaEyeSlash size={20} /> : <FaEye size={20} />}
               </span>
+              {errors.confirmPassword && <p className="text-red-500 text-sm">{errors.confirmPassword}</p>}
+              {errors.passwordMatch && <p className="text-red-500 text-sm">{errors.passwordMatch}</p>}
             </div>
 
             <button
               type="submit"
-              className="w-full bg-[#D81B60] text-white font-bold py-3 rounded-lg hover:bg-[#880E4F] transition-all duration-300"
+              className="w-full bg-indigo-500 text-white font-bold py-3 rounded-lg hover:bg-indigo-700 transition-all duration-300"
             >
               Sign Up
             </button>
           </>
         )}
-
-        <div className="text-center mt-2">
-          <Link to="/" className="text-gray-600 hover:underline">
-            Already have an account? Login
-          </Link>
-        </div>
       </form>
+      <div className="mt-4">
+        <p className="text-gray-700 text-sm">
+          Already have an account?{" "}
+          <Link to="/login" className="text-indigo-500 hover:text-indigo-700">
+            Login here
+          </Link>
+        </p>
+      </div>
     </div>
   );
 };

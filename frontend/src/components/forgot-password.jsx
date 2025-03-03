@@ -5,35 +5,62 @@ import logo from "../logo.png";
 
 const ForgotPassword = () => {
   const [email, setEmail] = useState("");
+  const [emailError, setEmailError] = useState("");
+  const [serverError, setServerError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
 
-const sendOtp = async () => {
-  if (!email) {
-    alert("Please enter your email.");
-    return;
-  }
+  const validateEmail = (email) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
 
-  setIsLoading(true);
-  try {
-    const response = await axios.post("http://localhost:5000/forgot-password", { email });
+  const sendOtp = async () => {
+    setEmailError("");
+    setServerError("");
 
-    console.log("API Response:", response.data); // Debugging
-
-    if (response.data.success) {
-      alert("📩 OTP has been sent to your email!");
-      navigate("/verify-otp", { state: { email, purpose: "reset-password" } });
-    } else {
-      alert(`⚠️ Error: ${response.data.message || "Failed to send OTP"}`);
+    if (!email) {
+      setEmailError("Please enter your email.");
+      return;
     }
-  } catch (error) {
-    console.error("API Error:", error);
-    alert(`⚠️ Error: ${error.response?.data?.message || "Failed to send OTP"}`);
-  } finally {
-    setIsLoading(false);
-  }
-};
 
+    if (!validateEmail(email)) {
+      setEmailError("Please enter a valid email address.");
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const response = await axios.post("http://localhost:5000/forgot-password", { email });
+
+      if (response.data.success) {
+        alert("📩 OTP has been sent to your email!");
+        navigate("/verify-otp", { state: { email, purpose: "reset-password" } });
+      } else {
+        handleServerError(response.data.message);
+      }
+    } catch (error) {
+      handleServerError(error.response?.data?.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleServerError = (message) => {
+    switch (message) {
+      case "Email not registered":
+        setEmailError("This email is not registered with us.");
+        break;
+      case "Too many attempts":
+        setServerError("Too many attempts. Please try again later.");
+        break;
+      case "Server error":
+        setServerError("Something went wrong. Please try again.");
+        break;
+      default:
+        setServerError(message || "Failed to send OTP. Please try again.");
+    }
+  };
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-[#FDF7F4] p-6">
@@ -41,13 +68,20 @@ const sendOtp = async () => {
       <h2 className="text-2xl font-bold mb-4 text-gray-800">Forgot Password</h2>
       <p className="mb-4 text-gray-600">Enter your email to receive an OTP.</p>
 
-      <input
-        type="email"
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-        className="w-64 p-3 text-gray-800 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#C2185B]"
-        placeholder="Enter your email"
-      />
+      <div className="w-64">
+        <input
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          className={`w-full p-3 text-gray-800 border rounded-lg focus:ring-2 focus:ring-[#C2185B] ${
+            emailError ? "border-red-500" : "border-gray-300"
+          }`}
+          placeholder="Enter your email"
+        />
+        {emailError && <p className="text-red-500 text-sm mt-1">{emailError}</p>}
+      </div>
+
+      {serverError && <p className="text-red-500 text-sm mt-2">{serverError}</p>}
 
       <button
         onClick={sendOtp}
