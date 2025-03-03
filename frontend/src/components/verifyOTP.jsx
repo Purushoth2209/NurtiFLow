@@ -1,39 +1,27 @@
 import React, { useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import axios from "axios";
-import logo from "../logo.png"; // Import logo for branding consistency
+import logo from "../logo.png"; // Import logo
 
 const VerifyOTP = () => {
   const location = useLocation();
   const navigate = useNavigate();
 
-  // Retrieve userData from location.state or localStorage
+  // Retrieve email from location.state or localStorage
   const email = location.state?.email || localStorage.getItem("email") || "";
-  const purpose = location.state?.purpose || localStorage.getItem("purpose") || "signup";
-  const [userData, setUserData] = useState(location.state?.userData || null);
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
   const [timer, setTimer] = useState(120);
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    console.log("Received location state:", location.state);
-
-    // Store data in localStorage to prevent loss on refresh
-    if (userData) {
-      localStorage.setItem("userData", JSON.stringify(userData));
+    // Store email in localStorage to persist across refresh
+    if (email) {
       localStorage.setItem("email", email);
-      localStorage.setItem("purpose", purpose);
     } else {
-      // If userData is missing and purpose is signup, redirect to signup page
-      const storedUserData = localStorage.getItem("userData");
-      if (!storedUserData && purpose === "signup") {
-        alert("⚠️ Missing user data. Please restart the signup process.");
-        navigate("/signup");
-      } else {
-        setUserData(JSON.parse(storedUserData));
-      }
+      alert("⚠️ Missing email. Please restart the process.");
+      navigate("/forgot-password");
     }
-  }, [userData, purpose, navigate]);
+  }, [email, navigate]);
 
   useEffect(() => {
     // Start countdown timer
@@ -66,40 +54,15 @@ const VerifyOTP = () => {
 
     setIsLoading(true);
     try {
-      let requestData = { email, otp: enteredOtp };
-
-      if (purpose === "signup") {
-        if (!userData) {
-          alert("⚠️ Missing user data. Please restart the signup process.");
-          setIsLoading(false);
-          return;
-        }
-        requestData = {
-          ...requestData,
-          name: userData.name,
-          age: userData.age,
-          gender: userData.gender,
-          phone: userData.phone,
-          password: userData.password,
-        };
-      }
-
-      const apiEndpoint =
-        purpose === "signup"
-          ? "http://localhost:5000/register"
-          : "http://localhost:5000/verify-otp";
-
-      const response = await axios.post(apiEndpoint, requestData);
+      const response = await axios.post("http://localhost:5000/verify-otp", {
+        email,
+        otp: enteredOtp,
+      });
 
       if (response.data.success) {
-        alert("✅ OTP Verified! Account successfully created.");
-        localStorage.removeItem("userData"); // Cleanup after successful verification
-
-        if (purpose === "signup") {
-          navigate("/login"); // Redirect to login after signup
-        } else if (purpose === "reset-password") {
-          navigate("/reset-password", { state: { email } }); // Redirect to reset password page
-        }
+        alert("✅ OTP Verified! Redirecting to reset password...");
+        localStorage.setItem("email", email);
+        navigate("/reset-password", { state: { email } }); // Redirect to Reset Password
       } else {
         alert("❌ Invalid OTP. Try again.");
       }
@@ -113,7 +76,7 @@ const VerifyOTP = () => {
   const resendOtp = async () => {
     setIsLoading(true);
     try {
-      const response = await axios.post("http://localhost:5000/send-otp", { email });
+      const response = await axios.post("http://localhost:5000/forgot-password", { email });
       if (response.data.success) {
         setTimer(120); // Reset timer
         alert("📩 OTP has been resent to your email!");
@@ -129,10 +92,8 @@ const VerifyOTP = () => {
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-[#FDF7F4] p-6">
-      <img src={logo} alt="NutriFlow Logo" className="w-[650px] h-auto mb-6" />
-      <h2 className="text-2xl font-bold mb-4 text-gray-800 font-sans">
-        {purpose === "signup" ? "Verify Your Email" : "Reset Your Password"}
-      </h2>
+      <img src={logo} alt="Logo" className="w-[650px] h-auto mb-6" />
+      <h2 className="text-2xl font-bold mb-4 text-gray-800 font-sans">Reset Your Password</h2>
       <p className="mb-4 text-gray-600">
         Enter the OTP sent to <span className="font-semibold">{email}</span>
       </p>
@@ -179,12 +140,12 @@ const VerifyOTP = () => {
         </button>
       )}
 
-      {/* Back to Login */}
+      {/* Back to Forgot Password */}
       <button
-        onClick={() => navigate("/login")}
+        onClick={() => navigate("/forgot-password")}
         className="mt-4 text-gray-700 hover:text-[#D81B60] underline"
       >
-        Back to Login
+        Back to Forgot Password
       </button>
     </div>
   );
